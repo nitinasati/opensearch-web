@@ -1,0 +1,82 @@
+PUT /member_communication_events
+{
+  "mappings": {
+    "properties": {
+      "event_id": {
+        "type": "keyword"
+      },
+      "member_id": {
+        "type": "keyword"
+      },
+      "group_id": {
+        "type": "keyword"
+      },
+      "claim_id": {
+        "type": "keyword"
+      },
+      "event_type": {
+        "type": "keyword"
+      },
+      "event_description": {
+        "type": "text"
+      },
+      "communication_channel": {
+        "type": "keyword"
+      },
+      "event_status": {
+        "type": "keyword"
+      },
+      "event_timestamp": {
+        "type": "date"
+      },
+      "documents": {
+        "type": "nested",
+        "properties": {
+          "document_id": {
+            "type": "keyword"
+          },
+          "document_type": {
+            "type": "keyword"
+          },
+          "document_status": {
+            "type": "keyword"
+          },
+          "sent_date": {
+            "type": "date"
+          },
+          "received_date": {
+            "type": "date"
+          }
+        }
+      },
+      "created_by": {
+        "type": "keyword"
+      },
+      "last_updated": {
+        "type": "date"
+      },
+      "platform_indicator": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+
+GET member_communication_events/_search
+{
+            "size": 5, 
+            "query": {
+                "term": {
+                    "member_id": "LBL8PJPDF"
+                }
+            },
+            "sort": [
+                {"last_updated": {"order": "desc"}}
+            ]
+}
+
+PUT /_bulk
+{ "index": { "_index": "member_communication_events" } }
+{ "event_id": "01700a4e-19c1-4b74-95a2-f793e65cc62d", "member_id": "LBL8PJPDF", "group_id": "PUT11111", "claim_id": "CLM855487", "event_type": "Policy update notification", "event_description": "Policy update notification for claim CLM855487", "communication_channel": "Phone", "event_status": "Pending", "event_timestamp": "2025-05-26T10:16:26.309646", "documents": [ { "document_id": "d280309d-b074-4f44-9b77-8b75b39f28ae", "document_type": "RTW Form", "document_status": "Received", "sent_date": "2025-01-25T22:40:52.438011", "received_date": "2024-10-02T02:21:00.777794" } ], "created_by": "system_user", "last_updated": "2025-05-29T02:19:43.439496", "platform_indicator": "WEB" }
+{ "index": { "_index": "member_communication_events" } }
+{ "event_id": "b781ed72-7f6f-4ed3-a187-68b005b8e45d", "member_id": "LBL8PJPDF", "group_id": "PUT11111", "claim_id": "CLM805344", "event_type": "Eligibility inquiry", "event_description": "Eligibility inquiry for claim CLM805344", "communication_channel": "Portal", "event_status": "Sent", "event_timestamp": "2024-12-03T06:31:41.102345", "documents": [ { "document_id": "111d9a12-c1fb-4d65-8470-8a3a594586bd", "document_type": "Eligibility Proof", "document_status": "Sent", "sent_date": "2024-09-13T09:24:11.392874", "received_date": "2025-03-04T01:14:35.689871" } ], "created_by": "system_user", "last_updated": "2025-05-29T02:19:43.439496", "platform_indicator": "WEB" }
