@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenSearch Web</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        .search-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .results-container {
+            position: relative;
+            margin-top: 10px;
+        }
+        .results-list {
+            position: absolute;
+            width: 100%;
+            max-height: 400px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .result-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .result-item:hover {
+            background-color: #f8f9fa;
+        }
+        .details-container {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .loading {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+        }
+        .error-message {
+            color: #dc3545;
+            margin-top: 10px;
+            display: none;
+        }
+        .result-item i {
+            margin-right: 8px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container search-container">
+        <h1 class="mb-4">OpenSearch Web</h1>
+        
+        <div class="position-relative">
+            <input type="text" 
+                   class="form-control form-control-lg" 
+                   id="searchInput" 
+                   placeholder="Search... (minimum 3 characters)"
+                   autocomplete="off">
+            <div class="loading d-none">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="results-container">
+            <div id="resultsList" class="results-list d-none"></div>
+        </div>
+
+        <div id="detailsContainer" class="details-container d-none">
+            <h3 id="detailsTitle"></h3>
+            <pre id="detailsContent"></pre>
+        </div>
+    </div>
+
+    <script>
+        let searchTimeout;
+        const searchInput = document.getElementById('searchInput');
+        const resultsList = document.getElementById('resultsList');
+        const detailsContainer = document.getElementById('detailsContainer');
+        const detailsTitle = document.getElementById('detailsTitle');
+        const detailsContent = document.getElementById('detailsContent');
+        const loadingSpinner = document.querySelector('.loading');
+        const errorMessage = document.getElementById('errorMessage');
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function debounce(func, wait) {
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(searchTimeout);
+                    func(...args);
+                };
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(later, wait);
+            };
+        }
+
+        function formatResultItem(result) {
+            const data = result.data || {};
+            let primaryText = '';
+            let secondaryText = '';
+            let additionalInfo = '';
+
+            if (result.type === 'member') {
+                primaryText = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+                secondaryText = `Member ID: ${data.member_id || 'N/A'}`;
+                additionalInfo = [
+                    data.phmmid ? `PHMMID: ${data.phmmid}` : null,
+                    data.pmi_number ? `PMI: ${data.pmi_number}` : null,
+                    data.group_name ? `Group: ${data.group_name}` : null
+                ].filter(Boolean).join(' | ');
+            } else {
+                primaryText = data.employer_name || 'N/A';
+                secondaryText = `Policy: ${data.group_policy_number || 'N/A'}`;
+                additionalInfo = [
+                    data.product_type ? `Product: ${data.product_type}` : null,
+                    data.policy_status ? `Status: ${data.policy_status}` : null,
+                    data.industry ? `Industry: ${data.industry}` : null,
+                    data.broker_name ? `Broker: ${data.broker_name}` : null
+                ].filter(Boolean).join(' | ');
+            }
+
+            return `
+                <div class="result-item" 
+                     onclick="showDetails('${result.id}', '${result.type}', '${result.index}')"
+                     data-id="${result.id}"
+                     data-type="${result.type}"
+                     data-index="${result.index}">
+                    <i class="bi ${result.type === 'member' ? 'bi-person' : 'bi-building'}"></i>
+                    <strong>${primaryText}</strong><br>
+                    <small>${secondaryText}</small>
+                    ${additionalInfo ? `<br><small class="text-muted">${additionalInfo}</small>` : ''}
+                </div>
+            `;
+        }
+
+        async function performSearch(query) {
+            if (query.length < 3) {
+                resultsList.classList.add('d-none');
+                return;
+            }
+
+            loadingSpinner.classList.remove('d-none');
+            errorMessage.style.display = 'none';
+            
+            try {
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                    resultsList.classList.add('d-none');
+                    return;
+                }
+                
+                if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+                    resultsList.innerHTML = data.results.map(formatResultItem).join('');
+                    resultsList.classList.remove('d-none');
+                } else {
+                    resultsList.classList.add('d-none');
+                }
+            } catch (error) {
+                console.error('Error searching:', error);
+                showError('Error performing search. Please try again.');
+                resultsList.classList.add('d-none');
+            } finally {
+                loadingSpinner.classList.add('d-none');
+            }
+        }
+
+        async function showDetails(id, type, index) {
+            if (!id || !type) {
+                showError('Invalid result selected');
+                return;
+            }
+
+            loadingSpinner.classList.remove('d-none');
+            try {
+                const response = await fetch(`/details?id=${id}&type=${type}&index=${index}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                
+                detailsTitle.textContent = `${type === 'member' ? 'Member' : 'Plan'} Details`;
+                
+                // Create a container for summary
+                detailsContent.innerHTML = `
+                    <div class="mb-4">
+                        <h4>Summary</h4>
+                        <div class="p-3 bg-light rounded">${data.summary}</div>
+                    </div>
+                `;
+                detailsContainer.classList.remove('d-none');
+                resultsList.classList.add('d-none');
+            } catch (error) {
+                console.error('Error fetching details:', error);
+                showError('Error fetching details. Please try again.');
+            } finally {
+                loadingSpinner.classList.add('d-none');
+            }
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', debounce((e) => {
+            performSearch(e.target.value);
+        }, 300));
+
+        // Close results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.results-container') && !e.target.closest('#searchInput')) {
+                resultsList.classList.add('d-none');
+            }
+        });
+    </script>
+</body>
+</html> 
